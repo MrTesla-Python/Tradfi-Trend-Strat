@@ -116,5 +116,6 @@ plt.plot(logret(df4), label='Portfolio')
 plt.legend()
 plt.show()
 
+#we make some changes
 nzr = lambda df: df.capital_ret[df.capital_ret != 0]
 print(np.std(nzr(df4)) * np.sqrt(253))
