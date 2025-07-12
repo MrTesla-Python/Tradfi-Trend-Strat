@@ -19,7 +19,7 @@ class Alpha3(Alpha):
     
     def post_compute(self,trade_range):
         for inst in self.insts:
-            self.dfs[inst]["alpha"] = self.dfs[inst]["alpha"].fillna(method="ffill")
+            self.dfs[inst]["alpha"] = self.dfs[inst]["alpha"].ffill()
             self.dfs[inst]["eligible"] = self.dfs[inst]["eligible"] \
                 & (~pd.isna(self.dfs[inst]["alpha"]))
         return

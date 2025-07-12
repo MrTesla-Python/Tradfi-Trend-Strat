@@ -28,15 +28,15 @@ def get_pnl_stats(date, prev, portfolio_df, insts, idx, dfs):
     for inst in insts:
         units = portfolio_df.loc[idx - 1, "{} units".format(inst)]
         if units != 0:
-            delta = dfs[inst].loc[date,"close"] - dfs[inst].loc[prev,"close"]
+            delta = dfs[inst].at[date,"close"] - dfs[inst].at[prev,"close"]
             inst_pnl = delta * units
             day_pnl += inst_pnl
-            nominal_ret += portfolio_df.loc[idx - 1, "{} w".format(inst)] * dfs[inst].loc[date, "ret"]
-    capital_ret = nominal_ret * portfolio_df.loc[idx - 1, "leverage"]
-    portfolio_df.loc[idx,"capital"] = portfolio_df.loc[idx - 1,"capital"] + day_pnl
-    portfolio_df.loc[idx,"day_pnl"] = day_pnl
-    portfolio_df.loc[idx,"nominal_ret"] = nominal_ret
-    portfolio_df.loc[idx,"capital_ret"] = capital_ret
+            nominal_ret += portfolio_df.at[idx - 1, "{} w".format(inst)] * dfs[inst].at[date, "ret"]
+    capital_ret = nominal_ret * portfolio_df.at[idx - 1, "leverage"]
+    portfolio_df.at[idx,"capital"] = portfolio_df.at[idx - 1,"capital"] + day_pnl
+    portfolio_df.at[idx,"day_pnl"] = day_pnl
+    portfolio_df.at[idx,"nominal_ret"] = nominal_ret
+    portfolio_df.at[idx,"capital_ret"] = capital_ret
     return day_pnl, capital_ret
 
 import numpy as np
@@ -56,9 +56,24 @@ class Alpha():
         self.portfolio_vol = portfolio_vol
 
     def init_portfolio_settings(self, trade_range):
+        # Create base DataFrame with datetime column
         portfolio_df = pd.DataFrame(index=trade_range)\
             .reset_index()\
             .rename(columns={"index":"datetime"})
+        
+        # Prepare all columns and their initial values
+        columns_to_init = ["capital", "day_pnl", "capital_ret", "nominal_ret", "nominal", "leverage"]
+        for inst in self.insts:
+            columns_to_init.extend([f"{inst} w", f"{inst} units"])
+        
+        # Initialize all columns at once using pd.concat to avoid fragmentation
+        init_data = pd.DataFrame(
+            data=np.nan, 
+            index=portfolio_df.index, 
+            columns=columns_to_init
+        )
+        portfolio_df = pd.concat([portfolio_df, init_data], axis=1)
+            
         portfolio_df.loc[0,"capital"] = 10000
         portfolio_df.loc[0,"day_pnl"] = 0.0
         portfolio_df.loc[0,"capital_ret"] = 0.0
@@ -80,12 +95,12 @@ class Alpha():
         for inst in self.insts:
             df=pd.DataFrame(index=trade_range)
             inst_vol = (-1 + self.dfs[inst]["close"]/self.dfs[inst]["close"].shift(1)).rolling(30).std()
-            self.dfs[inst] = df.join(self.dfs[inst]).fillna(method="ffill").fillna(method="bfill")
+            self.dfs[inst] = df.join(self.dfs[inst]).ffill().bfill()
             self.dfs[inst]["ret"] = -1 + self.dfs[inst]["close"]/self.dfs[inst]["close"].shift(1)
             self.dfs[inst]["vol"] = inst_vol
-            self.dfs[inst]["vol"] = self.dfs[inst]["vol"].fillna(method="ffill").fillna(0)       
+            self.dfs[inst]["vol"] = self.dfs[inst]["vol"].ffill().fillna(0)       
             self.dfs[inst]["vol"] = np.where(self.dfs[inst]["vol"] < 0.005, 0.005, self.dfs[inst]["vol"])
-            sampled = self.dfs[inst]["close"] != self.dfs[inst]["close"].shift(1).fillna(method="bfill")
+            sampled = self.dfs[inst]["close"] != self.dfs[inst]["close"].shift(1).bfill()
             eligible = sampled.rolling(5).apply(lambda x: int(np.any(x))).fillna(0)
             self.dfs[inst]["eligible"] = eligible.astype(int) & (self.dfs[inst]["close"] > 0).astype(int)
         
@@ -95,7 +110,8 @@ class Alpha():
     def get_strat_scaler(self, target_vol, ewmas, ewstrats):
         ann_realized_vol = np.sqrt(ewmas[-1] * 253)
         return target_vol / ann_realized_vol * ewstrats[-1]
-                    
+
+    @timeme               
     def run_simulation(self):
         date_range = pd.date_range(start=self.start,end=self.end, freq="D")
         self.compute_meta_info(trade_range=date_range)
@@ -153,13 +169,13 @@ class Alpha():
             for inst in eligibles:
                 units = portfolio_df.loc[i, inst + " units"]
                 nominal_inst = units * self.dfs[inst].loc[date,"close"]
-                inst_w = nominal_inst / nominal_tot
+                inst_w = nominal_inst / nominal_tot if nominal_tot and not np.isnan(nominal_tot) else 0
                 portfolio_df.loc[i, inst + " w"] = inst_w
             
             portfolio_df.loc[i, "nominal"] = nominal_tot
             portfolio_df.loc[i, "leverage"] = nominal_tot / portfolio_df.loc[i, "capital"]
 
-        return portfolio_df.set_index("datetime",drop=True)
+        return portfolio_df.set_index("datetime",drop=True).copy()
 
 from collections import defaultdict
 class Portfolio(Alpha):
@@ -179,7 +195,7 @@ class Portfolio(Alpha):
             for i in range(len(self.stratdfs)):
                 inst_weights[i] = self.stratdfs[i]["{} w".format(inst)]\
                     * self.stratdfs[i]["leverage"]
-                inst_weights[i] = inst_weights[i].fillna(method="ffill").fillna(0.0)
+                inst_weights[i] = inst_weights[i].ffill().fillna(0.0)
             self.positions[inst] = inst_weights
         
 

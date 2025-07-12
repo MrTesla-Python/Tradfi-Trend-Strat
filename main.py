@@ -6,6 +6,11 @@ import pandas as pd
 from datetime import datetime
 from bs4 import BeautifulSoup
 from utils import timeme
+from utils import save_pickle, load_pickle
+from alpha1 import Alpha1
+from alpha2 import Alpha2
+from alpha3 import Alpha3
+from utils import Portfolio
 
 def get_sp500_tickers():
     res = requests.get("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")
@@ -75,47 +80,43 @@ def get_ticker_dfs(start,end):
         save_pickle("dataset.obj", (tickers,ticker_dfs))
     return tickers, ticker_dfs 
 
-from utils import timeme
+def main():
+    period_start = datetime(2010, 1, 1, tzinfo=pytz.utc)
+    period_end = datetime.now(pytz.utc)
+    tickers, ticker_dfs = get_ticker_dfs(start=period_start, end=period_end)
+    testfor = 20
+    print(f"testing {testfor} out of {len(tickers)} tickers")
+    tickers = tickers[:testfor]
 
-from utils import Alpha
-from utils import save_pickle, load_pickle
-period_start = datetime(2010,1,1, tzinfo=pytz.utc)
-period_end = datetime.now(pytz.utc)
-tickers, ticker_dfs = get_ticker_dfs(start=period_start,end=period_end)
-testfor = 20
-tickers = tickers[:testfor]
+    alpha1 = Alpha1(insts=tickers, dfs=ticker_dfs, start=period_start, end=period_end)
+    alpha2 = Alpha2(insts=tickers, dfs=ticker_dfs, start=period_start, end=period_end)
+    alpha3 = Alpha3(insts=tickers, dfs=ticker_dfs, start=period_start, end=period_end)
 
-from alpha1 import Alpha1
-from alpha2 import Alpha2
-from alpha3 import Alpha3
-from utils import Portfolio
-alpha1 = Alpha1(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
-alpha2 = Alpha2(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
-alpha3 = Alpha3(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
+    df1 = alpha1.run_simulation()
+    print(list(df1.capital)[-1])
+    # df2 = alpha2.run_simulation()
+    # print(list(df2.capital)[-1])
+    # df3 = alpha3.run_simulation()
+    # print(list(df3.capital)[-1])
 
-# df1 = alpha1.run_simulation()
-# print(df1)
-# df2 = alpha2.run_simulation()
-# print(df2)
-# df3 = alpha3.run_simulation()
-# print(df3)
-
-(df1,df2,df3) = load_pickle('simulations.obj')
+if __name__ == "__main__":
+    main()
 
 
-portfolio = Portfolio(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end,stratdfs=[df1, df2, df3])
-df4 = portfolio.run_simulation()
-import numpy as np
-import matplotlib.pyplot as plt
+"""
+testing 200 out of 501 tickers
+@timeme: run_simulation took 199.55849957466125 seconds
+68985.96086326586
+@timeme: run_simulation took 224.54899740219116 seconds
+31529.17547384153
+@timeme: run_simulation took 211.13549733161926 seconds
+167449.46414392962
 
-logret = lambda df: np.log((1 + df.capital_ret).cumprod())
-plt.plot(logret(df1), label='1')
-plt.plot(logret(df2), label='2')
-plt.plot(logret(df3), label='3')
-plt.plot(logret(df4), label='Portfolio')
-plt.legend()
-plt.show()
-
-#we make some changes
-nzr = lambda df: df.capital_ret[df.capital_ret != 0]
-print(np.std(nzr(df4)) * np.sqrt(253))
+testing 20 out of 501 tickers
+@timeme: run_simulation took 68.22950029373169 seconds
+31563.732732798675
+>>.loc > .at
+testing 20 out of 501 tickers
+@timeme: run_simulation took 22.14350175857544 seconds
+31563.732732798675
+"""

@@ -28,7 +28,7 @@ class Alpha1(Alpha):
         temp_df.columns = self.insts
         temp_df = temp_df.replace(np.inf, 0).replace(-np.inf, 0)
         zscore = lambda x: (x - np.mean(x))/np.std(x)
-        cszcre_df = temp_df.fillna(method="ffill").apply(zscore, axis=1)
+        cszcre_df = temp_df.ffill().apply(zscore, axis=1)
         for inst in self.insts:
             self.dfs[inst]["alpha"] = cszcre_df[inst].rolling(12).mean() * -1
             self.dfs[inst]["eligible"] = self.dfs[inst]["eligible"] \
@@ -38,7 +38,7 @@ class Alpha1(Alpha):
     def compute_signal_distribution(self, eligibles, date):
         alpha_scores = {}
         for inst in eligibles:
-            alpha_scores[inst] = self.dfs[inst].loc[date, "alpha"]
+            alpha_scores[inst] = self.dfs[inst].at[date, "alpha"]
         alpha_scores = {k:v for k,v in sorted(alpha_scores.items(),key=lambda pair:pair[1])}
         alpha_long = list(alpha_scores.keys())[-int(len(eligibles)/4):]
         alpha_short = list(alpha_scores.keys())[:int(len(eligibles)/4)]
