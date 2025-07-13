@@ -106,8 +106,11 @@ class Alpha():
             self.dfs[inst]["vol"] = self.dfs[inst]["vol"].ffill().fillna(0)       
             self.dfs[inst]["vol"] = np.where(self.dfs[inst]["vol"] < 0.005, 0.005, self.dfs[inst]["vol"])
             sampled = self.dfs[inst]["close"] != self.dfs[inst]["close"].shift(1).bfill()
-            eligible = sampled.rolling(5).apply(is_any_one).fillna(0)
-            self.dfs[inst]["eligible"] = eligible.astype(int) & (self.dfs[inst]["close"] > 0).astype(int)
+            convolved = np.convolve(sampled, np.ones(5, dtype=int), mode='valid')
+            eligible_vectorized = (convolved >= 1).astype(int)
+            eligible = pd.Series(np.concatenate([np.zeros(4, dtype=int), eligible_vectorized]), index=sampled.index)
+            close_condition = (self.dfs[inst]['close'] > 0).astype(int)
+            self.dfs[inst]['eligible'] = eligible & close_condition
         
         self.post_compute(trade_range=trade_range)
         return 

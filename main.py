@@ -198,5 +198,10 @@ Line #      Hits         Time  Per Hit   % Time  Line Contents
 testing 20 out of 501 tickers
 @timeme: run_simulation took 6.906998157501221 seconds
 31563.732732798675
+
+>> .apply to using convolve
+testing 20 out of 501 tickers
+@timeme: run_simulation took 6.251500129699707 seconds
+31563.732732798675
 """
 
