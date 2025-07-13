@@ -27,6 +27,6 @@ class Alpha3(Alpha):
     def compute_signal_distribution(self, eligibles, date):
         forecasts={}
         for inst in eligibles:
-            forecasts[inst] = self.dfs[inst].loc[date, "alpha"]
+            forecasts[inst] = self.dfs[inst].at[date, "alpha"]
         return forecasts, np.sum(np.abs(list(forecasts.values())))
     
