@@ -84,7 +84,7 @@ def main():
     period_start = datetime(2010, 1, 1, tzinfo=pytz.utc)
     period_end = datetime.now(pytz.utc)
     tickers, ticker_dfs = get_ticker_dfs(start=period_start, end=period_end)
-    testfor = 20
+    testfor = 200
     print(f"testing {testfor} out of {len(tickers)} tickers")
     tickers = tickers[:testfor]
 
@@ -113,95 +113,13 @@ testing 200 out of 501 tickers
 167449.46414392962
 
 
-ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-    780/1    0.004    0.000   70.900   70.900 {built-in method builtins.exec}
-        1    0.024    0.024   70.900   70.900 main.py:1(<module>)
-        1    0.000    0.000   70.161   70.161 main.py:83(main)
-        1    0.000    0.000   68.230   68.230 utils.py:7(timediff)
-        1    0.916    0.916   68.229   68.229 utils.py:114(run_simulation)
-   260912    0.959    0.000   37.385    0.000 indexing.py:882(__setitem__)
-   260912    0.920    0.000   31.331    0.000 indexing.py:1785(_setitem_with_indexer)
-   260912    0.564    0.000   28.981    0.000 indexing.py:1946(_setitem_with_indexer_split_path)
-  1469433    2.437    0.000   27.957    0.000 indexing.py:1176(__getitem__)
-   260912    1.070    0.000   27.621    0.000 indexing.py:2111(_setitem_single_column)
-  1095161    1.369    0.000   12.688    0.000 frame.py:4191(_get_value)
-   260913    0.348    0.000   12.553    0.000 generic.py:6432(dtypes)
-272740/272719    1.520    0.000   11.206    0.000 series.py:389(__init__)
-   260912    0.559    0.000   10.708    0.000 managers.py:1298(column_setitem)
-     5671    0.242    0.000   10.490    0.002 utils.py:25(get_pnl_stats)
-        1    0.002    0.002    6.923    6.923 utils.py:92(compute_meta_info)
-  1095583    0.905    0.000    5.766    0.000 frame.py:4626(_get_item_cache)
-   260972    3.060    0.000    5.277    0.000 managers.py:1066(iset)
-       60    0.000    0.000    5.256    0.088 rolling.py:562(_apply)
-       60    0.000    0.000    5.256    0.088 rolling.py:460(_apply_columnwise)
-
-testing 20 out of 501 tickers
-@timeme: run_simulation took 68.22950029373169 seconds
-31563.732732798675
->>.loc > .at
-testing 20 out of 501 tickers
-@timeme: run_simulation took 22.14350175857544 seconds
-31563.732732798675
-
-  ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-    780/1    0.003    0.000   27.519   27.519 {built-in method builtins.exec}
-        1    0.032    0.032   27.518   27.518 main.py:1(<module>)
-        1    0.000    0.000   26.852   26.852 main.py:83(main)
-        1    0.000    0.000   24.993   24.993 utils.py:7(timediff)
-        1    0.647    0.647   24.992   24.992 utils.py:114(run_simulation)
-  1095161    0.751    0.000   12.997    0.000 indexing.py:2568(__getitem__)
-  1095161    0.698    0.000   11.666    0.000 indexing.py:2518(__getitem__)
-  1095161    1.049    0.000   10.796    0.000 frame.py:4191(_get_value)
-        1    0.002    0.002    6.289    6.289 utils.py:92(compute_meta_info)
-     5671    0.218    0.000    5.341    0.001 utils.py:25(get_pnl_stats)
-  1095583    0.754    0.000    5.046    0.000 frame.py:4626(_get_item_cache)
-       60    0.000    0.000    4.745    0.079 rolling.py:562(_apply)
-       60    0.000    0.000    4.744    0.079 rolling.py:460(_apply_columnwise)
-       60    0.000    0.000    4.744    0.079 rolling.py:440(_apply_series)
-       60    0.000    0.000    4.740    0.079 rolling.py:595(homogeneous_func)
-       60    0.002    0.000    4.739    0.079 rolling.py:601(calc)
-       20    0.000    0.000    4.737    0.237 rolling.py:2016(apply)
-       20    0.000    0.000    4.737    0.237 rolling.py:1471(apply)
-       20    0.119    0.006    4.734    0.237 rolling.py:1531(apply_func)
-   260912    0.204    0.000    4.284    0.000 indexing.py:2577(__setitem__)
-
-
-   Wrote profile results to main.py.lprof
-Timer unit: 1e-06 s
-
-Total time: 9.61358 s
-File: C:/Users/trist/Documents/HangukQuant/Q101/utils.py
-Function: compute_meta_info at line 92
-
-Line #      Hits         Time  Per Hit   % Time  Line Contents
-==============================================================
-    92                                               @profile
-    93                                               def compute_meta_info(self,trade_range):
-    94         1      14989.3  14989.3      0.2          self.pre_compute(trade_range=trade_range)
-    95
-    96        21         13.3      0.6      0.0          for inst in self.insts:
-    97        20       5236.8    261.8      0.1              df=pd.DataFrame(index=trade_range)
-    98        20      11069.7    553.5      0.1              inst_vol = (-1 + self.dfs[inst]["close"]/self.dfs[inst]["close"].shift(1)).rolling(30).std()
-    99        20      26547.8   1327.4      0.3              self.dfs[inst] = df.join(self.dfs[inst]).ffill().bfill()
-   100        20      11555.1    577.8      0.1              self.dfs[inst]["ret"] = -1 + self.dfs[inst]["close"]/self.dfs[inst]["close"].shift(1)
-   101        20      11891.3    594.6      0.1              self.dfs[inst]["vol"] = inst_vol
-   102        20       5459.6    273.0      0.1              self.dfs[inst]["vol"] = self.dfs[inst]["vol"].ffill().fillna(0)
-   103        20       5244.4    262.2      0.1              self.dfs[inst]["vol"] = np.where(self.dfs[inst]["vol"] < 0.005, 0.005, self.dfs[inst]["vol"])
-   104        20       5873.2    293.7      0.1              sampled = self.dfs[inst]["close"] != self.dfs[inst]["close"].shift(1).bfill()
-   105        20    7430619.9 371531.0     77.3              eligible = sampled.rolling(5).apply(lambda x: int(np.any(x))).fillna(0)
-   106        20      14710.8    735.5      0.2              self.dfs[inst]["eligible"] = eligible.astype(int) & (self.dfs[inst]["close"] > 0).astype(int)
-   107
-   108         1    2070370.1    2e+06     21.5          self.post_compute(trade_range=trade_range)
-   109         1          0.3      0.3      0.0          return
-
->> .apply(raw=False) > .apply(raw=True) 
-testing 20 out of 501 tickers
-@timeme: run_simulation took 6.906998157501221 seconds
-31563.732732798675
-
->> .apply to using convolve
-testing 20 out of 501 tickers
-@timeme: run_simulation took 6.251500129699707 seconds
-31563.732732798675
+improvements
+testing 200 out of 501 tickers
+@timeme: run_simulation took 65.6654999256134 seconds
+68985.96086326586
+@timeme: run_simulation took 79.05649638175964 seconds
+31529.17547384153
+@timeme: run_simulation took 67.90749645233154 seconds
+167449.46414392962
 """
 

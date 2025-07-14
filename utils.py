@@ -96,7 +96,8 @@ class Alpha():
         
         def is_any_one(x):
             return int(np.any(x))
-        
+
+        closes, eligibles, vols, rets = [], [], [], []
         for inst in self.insts:
             df=pd.DataFrame(index=trade_range)
             inst_vol = (-1 + self.dfs[inst]["close"]/self.dfs[inst]["close"].shift(1)).rolling(30).std()
@@ -110,7 +111,20 @@ class Alpha():
             eligible_vectorized = (convolved >= 1).astype(int)
             eligible = pd.Series(np.concatenate([np.zeros(4, dtype=int), eligible_vectorized]), index=sampled.index)
             close_condition = (self.dfs[inst]['close'] > 0).astype(int)
-            self.dfs[inst]['eligible'] = eligible & close_condition
+            eligibles.append(eligible & close_condition)
+            closes.append(self.dfs[inst]["close"])
+            vols.append(self.dfs[inst]["vol"])
+            rets.append(self.dfs[inst]["ret"])
+
+        self.eligiblesdf = pd.concat(eligibles, axis=1)
+        self.eligiblesdf.columns = self.insts
+        self.closesdf = pd.concat(closes, axis=1)
+        self.closesdf.columns = self.insts
+        self.voldf = pd.concat(vols, axis=1)
+        self.voldf.columns = self.insts
+        self.retdf = pd.concat(rets, axis=1)
+        self.retdf.columns = self.insts
+        
         
         self.post_compute(trade_range=trade_range)
         return 
@@ -119,7 +133,7 @@ class Alpha():
         ann_realized_vol = np.sqrt(ewmas[-1] * 253)
         return target_vol / ann_realized_vol * ewstrats[-1]
 
-    @timeme               
+    @timeme         
     def run_simulation(self):
         date_range = pd.date_range(start=self.start,end=self.end, freq="D")
         self.compute_meta_info(trade_range=date_range)
@@ -213,3 +227,111 @@ class Portfolio(Alpha):
             for i in range(len(self.stratdfs)):
                 forecasts[inst] += self.positions[inst].at[date, i] * (1/len(self.stratdfs))
         return forecasts, np.sum(np.abs(list(forecasts.values())))
+    
+class EfficientAlpha():
+    def __init__(self, insts, dfs, start, end, portfolio_vol=0.20):
+        self.insts = insts
+        self.dfs = deepcopy(dfs)
+        self.start = start 
+        self.end = end
+        self.portfolio_vol = portfolio_vol
+
+    def init_portfolio_settings(self, trade_range):
+        # Create base DataFrame with datetime column
+        portfolio_df = pd.DataFrame(index=trade_range)\
+            .reset_index()\
+            .rename(columns={"index":"datetime"})
+        
+        # Prepare all columns and their initial values
+        columns_to_init = ["capital", "day_pnl", "capital_ret", "nominal_ret", "nominal", "leverage"]
+        for inst in self.insts:
+            columns_to_init.extend([f"{inst} w", f"{inst} units"])
+        
+        # Initialize all columns at once using pd.concat to avoid fragmentation
+        init_data = pd.DataFrame(
+            data=np.nan, 
+            index=portfolio_df.index, 
+            columns=columns_to_init
+        )
+        portfolio_df = pd.concat([portfolio_df, init_data], axis=1)
+            
+        portfolio_df.at[0,"capital"] = 10000
+        portfolio_df.at[0,"day_pnl"] = 0.0
+        portfolio_df.at[0,"capital_ret"] = 0.0
+        portfolio_df.at[0,"nominal_ret"] = 0.0
+        return portfolio_df
+    
+    def get_strat_scaler(self, target_vol, ewmas, ewstrats):
+        ann_realized_vol = np.sqrt(ewmas[-1] * 253)
+        return target_vol / ann_realized_vol * ewstrats[-1]
+    
+    def compute_meta_info(self,trade_range):
+        self.pre_compute(trade_range=trade_range)
+        
+        def is_any_one(x):
+            return int(np.any(x))
+
+        closes, eligibles, vols, rets = [], [], [], []
+        for inst in self.insts:
+            df=pd.DataFrame(index=trade_range)
+            inst_vol = (-1 + self.dfs[inst]["close"]/self.dfs[inst]["close"].shift(1)).rolling(30).std()
+            self.dfs[inst] = df.join(self.dfs[inst]).ffill().bfill()
+            self.dfs[inst]["ret"] = -1 + self.dfs[inst]["close"]/self.dfs[inst]["close"].shift(1)
+            self.dfs[inst]["vol"] = inst_vol
+            self.dfs[inst]["vol"] = self.dfs[inst]["vol"].ffill().fillna(0)       
+            self.dfs[inst]["vol"] = np.where(self.dfs[inst]["vol"] < 0.005, 0.005, self.dfs[inst]["vol"])
+            sampled = self.dfs[inst]["close"] != self.dfs[inst]["close"].shift(1).bfill()
+            convolved = np.convolve(sampled, np.ones(5, dtype=int), mode='valid')
+            eligible_vectorized = (convolved >= 1).astype(int)
+            eligible = pd.Series(np.concatenate([np.zeros(4, dtype=int), eligible_vectorized]), index=sampled.index)
+            close_condition = (self.dfs[inst]['close'] > 0).astype(int)
+            eligibles.append(eligible & close_condition)
+            closes.append(self.dfs[inst]["close"])
+            vols.append(self.dfs[inst]["vol"])
+            rets.append(self.dfs[inst]["ret"])
+
+        self.eligiblesdf = pd.concat(eligibles, axis=1)
+        self.eligiblesdf.columns = self.insts
+        self.closedf = pd.concat(closes, axis=1)
+        self.closedf.columns = self.insts
+        self.voldf = pd.concat(vols, axis=1)
+        self.voldf.columns = self.insts
+        self.retdf = pd.concat(rets, axis=1)
+        self.retdf.columns = self.insts
+
+    @timeme         
+    def run_simulation(self):
+        date_range = pd.date_range(start=self.start,end=self.end, freq="D")
+        self.compute_meta_info(trade_range=date_range)
+        self.portfolio_df = self.init_portfolio_settings(trade_range=date_range)
+        for data in self.zip_data_generator():
+            portfolio_i = data['portfolio_i']
+            portfolio_row = data['portfolio_row']
+            ret_i = data['ret_i']
+            ret_row = data['ret_row']
+            close_row = data['close_row']
+            eligibles_row = data['eligibles_row']
+            vol_row = data['vol_row']
+
+    def zip_data_generator(self):
+        for (portfolio_i, portfolio_row), \
+            (ret_i, ret_row), \
+            (close_i, close_row), \
+            (eligibles_i, eligibles_row), \
+            (vol_i, vol_row) in zip(
+                self.portfolio_df.iterrows(),
+                self.retdf.iterrows(),
+                self.closedf.iterrows(),
+                self.eligiblesdf.iterrows(),
+                self.voldf.iterrows()
+            ):
+            yield {
+                'portfolio_i': portfolio_i,
+                'portfolio_row': portfolio_row,
+                'ret_i': ret_i,
+                'ret_row': ret_row,
+                'close_row': close_row,
+                'eligibles_row': eligibles_row,
+                'vol_row': vol_row
+            }
+            
