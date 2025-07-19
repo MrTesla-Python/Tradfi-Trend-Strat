@@ -2,12 +2,12 @@ import numpy as np
 import pandas as pd
 from utils import Alpha
 
-class Alpha3(Alpha):
+class Alpha4(Alpha):
     """
     Multi-Timeframe Trend Following Strategy (Alpha3)
     """
 
-    def __init__(self,insts,dfs,start,end):
+    def __init__(self, lookbacks=[(16,64),(32,128),(64,256),(128,512)], **kwargs):
         """
         Initialize Alpha3 strategy.
         
@@ -17,7 +17,8 @@ class Alpha3(Alpha):
             start: Strategy start date
             end: Strategy end date
         """
-        super().__init__(insts,dfs,start,end)
+        super().__init__(**kwargs)
+        self.lookbacks = lookbacks
     
     def pre_compute(self,trade_range):
         """
@@ -32,24 +33,24 @@ class Alpha3(Alpha):
         for inst in self.insts:
             inst_df = self.dfs[inst]
             
-            # Fast trend signal: 10-day MA vs 50-day MA
-            # Detects short-term momentum changes
-            fast = np.where(inst_df.close.rolling(10).mean() > inst_df.close.rolling(50).mean(), 1, 0)
+            trending = pd.Series(0.0, index=inst_df.index)
             
-            # Medium trend signal: 20-day MA vs 100-day MA  
-            # Provides medium-term trend confirmation
-            medium = np.where(inst_df.close.rolling(20).mean() > inst_df.close.rolling(100).mean(), 1, 0)
-            
-            # Slow trend signal: 50-day MA vs 200-day MA
-            # Classic long-term trend filter (Golden Cross / Death Cross)
-            slow = np.where(inst_df.close.rolling(50).mean() > inst_df.close.rolling(200).mean(), 1, 0)
-            
-            # Combine all three trend signals
-            # Alpha ranges from 0 (all bearish) to 3 (all bullish)
-            # Higher values indicate stronger trend alignment across timeframes
-            alpha = fast + medium + slow
-            
-            self.dfs[inst]["alpha"] = alpha
+            # Calculate crossover signal for each lookback period
+            for n1, n2 in self.lookbacks:
+                # Calculate short and long exponential moving averages
+                ema1 = inst_df.close.ewm(span=n1, adjust=False).mean()
+                ema2 = inst_df.close.ewm(span=n2, adjust=False).mean()
+
+                # Calculate percentage difference signal
+                sig =  100 * (ema1 - ema2) / ema2
+                # Clip signal to prevent extreme outliers
+                sig = sig.clip(-20, 20)
+
+                # Add to composite trending signal
+                trending = trending.add(sig, fill_value=0)
+
+            # Store the computed alpha signal
+            self.dfs[inst]['alpha'] = trending.astype(np.float64)
         return
     
     def post_compute(self,trade_range):
